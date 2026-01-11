@@ -24,8 +24,9 @@ jwt = JWTManager(app)
 # Sample data
 def seed_data():
     if not MenuItem.query.first():
-        db.session.add(MenuItem(name='Margherita Pizza', description='Classic cheese pizza', price=300))
-        db.session.add(MenuItem(name='Burger', description='Juicy beef burger', price=99))
+        db.session.add(MenuItem(name='Grilled Herb Infused Rib-eye', description='Juicy, tender ribeye steak, perfectly grilled and marinated with a blend of fresh herbs, garlic, and a hint of black pepper. Served with roasted vegetables and a savory red wine reduction sauce, this dish delivers a rich, mouthwatering flavor that melts in your mouth.', price=499))
+        db.session.add(MenuItem(name='Truffle Butter Dumplings', description='Delicate dumplings filled with a savory blend of vegetables and herbs, pan-seared to golden perfection, and served with a creamy truffle-infused sauce. Garnished with crispy wonton strips and fresh dill for an elegant touch.', price=299))
+        db.session.add(MenuItem(name='Golden Harvest Garden', description='A visually stunning medley of roasted root vegetables, drizzled with a vibrant golden sauce and adorned with crisp vegetable chips, microgreens, and delicate edible flowers. A celebration of texture and color, perfect for the discerning palate.', price=399))        
         db.session.commit()
 
 

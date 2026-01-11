@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urban Dining | Menu - Restaurant Management</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .menu-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .menu-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .menu-item h3 {
+            margin: 10px 0;
+        }
+
+        .menu-item p {
+            color: #666;
+        }
+
+        .price {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .add-to-cart {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        .add-to-cart:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .login-prompt {
+            color: red;
+            font-size: 14px;
+        }
+
+        .admin-controls {
+            margin-top: 10px;
+        }
+
+        .admin-controls button {
+            margin-right: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Our Menu</h1>
+        <div id="login-section" style="display: block;">
+            <div id="g_id_onload"
+                data-client_id="334921262476-b33hd14qv2437f7i0t1jof08ipu7h8m2.apps.googleusercontent.com"
+                data-callback="handleGoogleLogin" data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin" data-type="standard"></div>
+            <p>Or <a href="login.html">login with username/password</a></p>
+        </div>
+        <div id="user-info" style="display: none;">
+            <p>Welcome! <button onclick="logout()">Logout</button></p>
+        </div>
+        <div id="menu-container" class="menu-grid"></div>
+        <div id="cart-summary" style="margin-top: 20px;">
+            <h2>Cart</h2>
+            <ul id="cart-list"></ul>
+            <button id="place-order" style="display: none;">Place Order</button>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('jwtToken');
+        let isLoggedIn = !!token;
+        let isAdmin = false;
+
+        // Function to update login status
+        function updateLoginStatus() {
+            token = localStorage.getItem('jwtToken');
+            isLoggedIn = !!token;
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    isAdmin = payload.role === 'admin';
+                } catch (e) {
+                    console.error('Invalid JWT token:', e);
+                    isLoggedIn = false;  // Reset if token is bad
+                }
+            }
+            // Update UI
+            if (isLoggedIn) {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('user-info').style.display = 'block';
+            } else {
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('user-info').style.display = 'none';
+            }
+        }
+
+        // Call on page load
+        updateLoginStatus();
+
+        // GIS callback function
+        async function handleGoogleLogin(response) {
+            const idToken = response.credential;
+            try {
+                const res = await fetch('http://127.0.0.1:5000/api/google-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_token: idToken })
+                });
+                const data = await res.json();
+                if (data.token) {
+                    localStorage.setItem('jwtToken', data.token);
+                    updateLoginStatus();  // Re-evaluate status
+                    loadMenu();  // Reload menu with auth
+                } else {
+                    alert('Login failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Google login error:', error);
+                alert('Login error');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('jwtToken');
+            updateLoginStatus();
+            loadMenu();  // Reload without auth
+        }
+
+        async function loadMenu() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/menu', {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                const menuItems = await response.json();
+                displayMenu(menuItems);
+            } catch (error) {
+                console.error('Error loading menu:', error);
+                document.getElementById('menu-container').innerHTML = '<p>Failed to load menu.</p>';
+            }
+        }
+
+        function displayMenu(items) {
+            const container = document.getElementById('menu-container');
+            container.innerHTML = '';
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'menu-item';
+                itemDiv.innerHTML = `
+                <img src="${item.image || 'placeholder.jpg'}" alt="${item.name}">
+                <h3>${item.name}</h3>
+                <p>${item.description}</p>
+                <p class="price">$${item.price}</p>
+                <button class="add-to-cart" ${!isLoggedIn ? 'disabled' : ''} onclick="addToCart('${item.id}', '${item.name}', ${item.price})">Add to Cart</button>
+                ${!isLoggedIn ? '<p class="login-prompt">Login to add to cart</p>' : ''}
+                ${isAdmin ? `
+                    <div class="admin-controls">
+                        <button onclick="editItem('${item.id}')">Edit</button>
+                        <button onclick="deleteItem('${item.id}')">Delete</button>
+                    </div>
+                ` : ''}
+            `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        let cart = [];
+        function addToCart(id, name, price) {
+            if (!isLoggedIn) {
+                alert('Please log in to add to cart.');
+                return;
+            }
+            cart.push({ id, name, price });
+            updateCartDisplay();
+        }
+
+        function updateCartDisplay() {
+            const cartList = document.getElementById('cart-list');
+            cartList.innerHTML = cart.map(item => `<li>${item.name} - $${item.price}</li>`).join('');
+            document.getElementById('place-order').style.display = cart.length > 0 ? 'block' : 'none';
+        }
+
+        document.getElementById('place-order').addEventListener('click', async () => {
+            if (!isLoggedIn) return alert('Please log in to place an order.');
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ items: cart })
+                });
+                if (response.ok) {
+                    alert('Order placed!');
+                    cart = [];
+                    updateCartDisplay();
+                } else {
+                    alert('Failed to place order.');
+                }
+            } catch (error) {
+                console.error('Error placing order:', error);
+            }
+        });
+
+        function editItem(id) { alert(`Edit item ${id}`); }
+        function deleteItem(id) {
+            if (confirm('Delete this item?')) {
+                fetch(`http://127.0.0.1:5000/api/menu/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } })
+                    .then(() => loadMenu());
+            }
+        }
+
+        loadMenu();
+    </script>
+</body>
+
+</html>

@@ -13,27 +13,22 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://urban_admin:urbandining@1234@localhost:5432/restaurant_db' 
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://urban_admin:urbandining%401234@localhost:5432/restaurant_db' 
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 db.init_app(app)
 jwt = JWTManager(app)
 
 # Create DB tables
-with app.app_context():
-    db.create_all()
+
 
 # Sample data
 def seed_data():
     if not MenuItem.query.first():
-        db.session.add(MenuItem(name='Margherita Pizza', description='Classic cheese pizza', price=10.99))
-        db.session.add(MenuItem(name='Burger', description='Juicy beef burger', price=8.99))
+        db.session.add(MenuItem(name='Margherita Pizza', description='Classic cheese pizza', price=300))
+        db.session.add(MenuItem(name='Burger', description='Juicy beef burger', price=99))
         db.session.commit()
 
-seed_data()
 
-# Routes
-
-# New: Google login via ID token (popup flow)
 @app.route('/api/google-login', methods=['POST'])
 def google_login():
     data = request.get_json()
@@ -41,7 +36,6 @@ def google_login():
     if not id_token:
         return jsonify({'error': 'ID token required'}), 400
     
-    # Verify ID token with Google
     try:
         resp = requests.get(f'https://oauth2.googleapis.com/tokeninfo?id_token={id_token}')
         if resp.status_code != 200:
@@ -75,7 +69,7 @@ def login():
         return jsonify({'token': token})
     return jsonify({'error': 'Invalid credentials'}), 401
 
-# Register (for demo)
+# Register 
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -176,4 +170,7 @@ def update_order_status(id):
     return jsonify({'message': 'Status updated'})
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        seed_data()
     app.run(debug=True)

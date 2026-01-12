@@ -12,7 +12,7 @@ Urban Dining is a web-based restaurant management and menu ordering application.
 
 ---
 
-##Deployment
+## Deployment
 
 1. Install requirements
    `pip install -r requirements.txt`
@@ -24,7 +24,7 @@ Urban Dining is a web-based restaurant management and menu ordering application.
 
 ---
 
-##Improvements
+## Improvements
 
 1. Enhanced UI accessible with phones and laptops
 2. Order Management Dashboard for admins as well as order placing feature for users

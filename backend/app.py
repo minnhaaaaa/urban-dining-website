@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity,get_jwt
 from flask_cors import CORS
 from models import db, User, MenuItem, Order
 import json
@@ -18,15 +18,12 @@ app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 db.init_app(app)
 jwt = JWTManager(app)
 
-# Create DB tables
-
-
 # Sample data
 def seed_data():
     if not MenuItem.query.first():
-        db.session.add(MenuItem(name='Grilled Herb Infused Rib-eye', description='Juicy, tender ribeye steak, perfectly grilled and marinated with a blend of fresh herbs, garlic, and a hint of black pepper. Served with roasted vegetables and a savory red wine reduction sauce, this dish delivers a rich, mouthwatering flavor that melts in your mouth.', price=499))
-        db.session.add(MenuItem(name='Truffle Butter Dumplings', description='Delicate dumplings filled with a savory blend of vegetables and herbs, pan-seared to golden perfection, and served with a creamy truffle-infused sauce. Garnished with crispy wonton strips and fresh dill for an elegant touch.', price=299))
-        db.session.add(MenuItem(name='Golden Harvest Garden', description='A visually stunning medley of roasted root vegetables, drizzled with a vibrant golden sauce and adorned with crisp vegetable chips, microgreens, and delicate edible flowers. A celebration of texture and color, perfect for the discerning palate.', price=399))        
+        db.session.add(MenuItem(name='Grilled Herb Infused Rib-eye', description='Juicy, tender ribeye steak, perfectly grilled and marinated with a blend of fresh herbs, garlic, and a hint of black pepper. Served with roasted vegetables and a savory red wine reduction sauce, this dish delivers a rich, mouthwatering flavor that melts in your mouth.', price=499,image = "assets/beef.jpg"))
+        db.session.add(MenuItem(name='Truffle Butter Dumplings', description='Delicate dumplings filled with a savory blend of vegetables and herbs, pan-seared to golden perfection, and served with a creamy truffle-infused sauce. Garnished with crispy wonton strips and fresh dill for an elegant touch.', price=299,image = "assets/momos.jpg"))
+        db.session.add(MenuItem(name='Golden Harvest Garden', description='A visually stunning medley of roasted root vegetables, drizzled with a vibrant golden sauce and adorned with crisp vegetable chips, microgreens, and delicate edible flowers. A celebration of texture and color, perfect for the discerning palate.', price=399,image = "assets/desert.jpg"))        
         db.session.commit()
 
 
@@ -46,18 +43,28 @@ def google_login():
         return jsonify({'error': 'Token verification failed'}), 500
     
     # Find or create user
-    user = User.query.filter_by(google_id=user_info['sub']).first()
+    user = User.query.filter(
+    (User.google_id == user_info['sub']) |
+    (User.email == user_info['email'])).first()
     if not user:
         user = User(
             google_id=user_info['sub'],
             email=user_info['email'],
-            role='admin' if user_info['email'] in ['admin@example.com'] else 'user'  # Customize admin emails
+            role='admin' if user_info['email'] in ['minha.shameer2025@vitstudent.ac.in'] else 'user'  # Customize admin emails
         )
         db.session.add(user)
-        db.session.commit()
+    else:
+        if not user.google_id:
+            user.google_id = user_info['sub']
+        user.role = 'admin' if user_info['email'] in ['minha.shameer2025@vitstudent.ac.in'] else 'user'
+    db.session.commit()
     
     # Generate JWT
-    jwt_token = create_access_token(identity={'id': user.id, 'role': user.role})
+    jwt_token = create_access_token(
+    identity=user.id,
+    additional_claims={"role": user.role}
+)
+
     return jsonify({'token': jwt_token})
 
 # Fallback login (username/password)
@@ -66,7 +73,11 @@ def login():
     data = request.get_json()
     user = User.query.filter_by(email=data['email'], password=data['password']).first()
     if user:
-        token = create_access_token(identity={'id': user.id, 'role': user.role})
+        token = create_access_token(
+    identity=user.id,
+    additional_claims={"role": user.role}
+)
+
         return jsonify({'token': token})
     return jsonify({'error': 'Invalid credentials'}), 401
 
@@ -97,8 +108,8 @@ def get_menu():
 @app.route('/api/menu', methods=['POST'])
 @jwt_required()
 def add_menu_item():
-    claims = get_jwt_identity()
-    if claims['role'] != 'admin':
+    claims = get_jwt()
+    if claims.get("role") != "admin":
         return jsonify({'error': 'Admin required'}), 403
     data = request.get_json()
     item = MenuItem(name=data['name'], description=data['description'], price=data['price'], image=data.get('image'))
@@ -110,8 +121,8 @@ def add_menu_item():
 @app.route('/api/menu/<int:id>', methods=['PUT'])
 @jwt_required()
 def edit_menu_item(id):
-    claims = get_jwt_identity()
-    if claims['role'] != 'admin':
+    claims = get_jwt()
+    if claims.get("role") != "admin":
         return jsonify({'error': 'Admin required'}), 403
     item = MenuItem.query.get_or_404(id)
     data = request.get_json()
@@ -126,8 +137,8 @@ def edit_menu_item(id):
 @app.route('/api/menu/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_menu_item(id):
-    claims = get_jwt_identity()
-    if claims['role'] != 'admin':
+    claims = get_jwt()
+    if claims.get("role") != "admin":
         return jsonify({'error': 'Admin required'}), 403
     item = MenuItem.query.get_or_404(id)
     db.session.delete(item)
@@ -138,9 +149,9 @@ def delete_menu_item(id):
 @app.route('/api/orders', methods=['POST'])
 @jwt_required()
 def place_order():
-    claims = get_jwt_identity()
+    claims = get_jwt()
     data = request.get_json()
-    order = Order(user_id=claims['id'], items=json.dumps(data['items']))
+    order = Order(user_id=claims.get('id'), items=json.dumps(data['items']))
     db.session.add(order)
     db.session.commit()
     return jsonify({'message': 'Order placed', 'order_id': order.id})
@@ -149,8 +160,8 @@ def place_order():
 @app.route('/api/orders', methods=['GET'])
 @jwt_required()
 def get_orders():
-    claims = get_jwt_identity()
-    orders = Order.query.filter_by(user_id=claims['id']).all()
+    claims = get_jwt()
+    orders = Order.query.filter_by(user_id=claims.get('id')).all()
     return jsonify([{
         'id': order.id,
         'items': json.loads(order.items),
@@ -161,8 +172,8 @@ def get_orders():
 @app.route('/api/orders/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_order_status(id):
-    claims = get_jwt_identity()
-    if claims['role'] != 'admin':
+    claims = get_jwt()
+    if claims.get("role") != "admin":
         return jsonify({'error': 'Admin required'}), 403
     order = Order.query.get_or_404(id)
     data = request.get_json()

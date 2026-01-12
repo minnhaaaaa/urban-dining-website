@@ -7,7 +7,7 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable = True, unique = True)
     google_id = db.Column(db.String(120), nullable = True, unique = True)
     email = db.Column(db.String(120), nullable = True, unique = True)
-    role = db.Column(db.String(120), default = 'user')
+    role = db.Column(db.String(120))
 
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)

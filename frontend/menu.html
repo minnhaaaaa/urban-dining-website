@@ -6,81 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Urban Dining | Menu - Restaurant Management</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .menu-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .menu-item {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .menu-item img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 5px;
-        }
-
-        .menu-item h3 {
-            margin: 10px 0;
-        }
-
-        .menu-item p {
-            color: #666;
-        }
-
-        .price {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .add-to-cart {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-            width: 100%;
-        }
-
-        .add-to-cart:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .login-prompt {
-            color: red;
-            font-size: 14px;
-        }
-
-        .admin-controls {
-            margin-top: 10px;
-        }
-
-        .admin-controls button {
-            margin-right: 5px;
-            padding: 5px 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/menu.css">
 </head>
 
 <body>
@@ -95,8 +21,21 @@
             <p>Or <a href="login.html">login with username/password</a></p>
         </div>
         <div id="user-info" style="display: none;">
-            <p>Welcome! <button onclick="logout()">Logout</button></p>
+            <button onclick="logout()">Logout</button></p>
+            <button id="view-orders" style="display: none;" onclick="viewOrders()">View Orders</button>
         </div>
+        <div id="add-item-form"
+            style="display: none; margin-top: 20px; padding: 20px; border: 1px solid #ccc; border-radius: 5px;">
+            <h3>Add New Menu Item</h3>
+            <input type="text" id="new-name" placeholder="Name" required>
+            <textarea id="new-description" placeholder="Description" required></textarea>
+            <input type="number" id="new-price" placeholder="Price (INR)" step="0.01" required>
+            <input type="text" id="new-image" placeholder="Image Path (e.g., assets/image.jpg)">
+            <button onclick="addNewItem()">Add Item</button>
+            <button onclick="document.getElementById('add-item-form').style.display='none'">Cancel</button>
+        </div>
+        <button id="show-add-form" style="display: none; margin: 20px;"
+            onclick="document.getElementById('add-item-form').style.display='block'">Add New Item</button>
         <div id="menu-container" class="menu-grid"></div>
         <div id="cart-summary" style="margin-top: 20px;">
             <h2>Cart</h2>
@@ -117,6 +56,7 @@
             if (token) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
+                    console.log("JWT PAYLOAD:", payload);
                     isAdmin = payload.role === 'admin';
                 } catch (e) {
                     console.error('Invalid JWT token:', e);
@@ -127,9 +67,15 @@
             if (isLoggedIn) {
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('user-info').style.display = 'block';
+                if (isAdmin) {
+                    document.getElementById('show-add-form').style.display = 'block';
+                    document.getElementById('view-orders').style.display = 'block';
+                }
             } else {
                 document.getElementById('login-section').style.display = 'block';
                 document.getElementById('user-info').style.display = 'none';
+                document.getElementById('show-add-form').style.display = 'none';
+                document.getElementById('view-orders').style.display = 'none';
             }
         }
 
@@ -148,6 +94,7 @@
                 const data = await res.json();
                 if (data.token) {
                     localStorage.setItem('jwtToken', data.token);
+                    token = data.token
                     updateLoginStatus();  // Re-evaluate status
                     loadMenu();  // Reload menu with auth
                 } else {
@@ -159,6 +106,9 @@
             }
         }
 
+        console.log('Token:', token);
+        console.log('isLoggedIn:', isLoggedIn);
+        console.log('isAdmin:', isAdmin);
         function logout() {
             localStorage.removeItem('jwtToken');
             updateLoginStatus();
@@ -188,12 +138,11 @@
                 <img src="${item.image || 'placeholder.jpg'}" alt="${item.name}">
                 <h3>${item.name}</h3>
                 <p>${item.description}</p>
-                <p class="price">$${item.price}</p>
-                <button class="add-to-cart" ${!isLoggedIn ? 'disabled' : ''} onclick="addToCart('${item.id}', '${item.name}', ${item.price})">Add to Cart</button>
-                ${!isLoggedIn ? '<p class="login-prompt">Login to add to cart</p>' : ''}
+                <p class="price">₹${item.price}</p>
+                <button class="add-to-cart" onclick="addToCart('${item.id}', '${item.name}', ${item.price})">Add to Cart</button>
                 ${isAdmin ? `
                     <div class="admin-controls">
-                        <button onclick="editItem('${item.id}')">Edit</button>
+                        <button onclick="editItem('${item.id}', '${item.name}', '${item.description}', ${item.price}, '${item.image}')">Edit</button>
                         <button onclick="deleteItem('${item.id}')">Delete</button>
                     </div>
                 ` : ''}
@@ -204,17 +153,13 @@
 
         let cart = [];
         function addToCart(id, name, price) {
-            if (!isLoggedIn) {
-                alert('Please log in to add to cart.');
-                return;
-            }
             cart.push({ id, name, price });
             updateCartDisplay();
         }
 
         function updateCartDisplay() {
             const cartList = document.getElementById('cart-list');
-            cartList.innerHTML = cart.map(item => `<li>${item.name} - $${item.price}</li>`).join('');
+            cartList.innerHTML = cart.map(item => `<li>${item.name} - ₹${item.price}</li>`).join('');  // Fixed to rupees
             document.getElementById('place-order').style.display = cart.length > 0 ? 'block' : 'none';
         }
 
@@ -238,12 +183,54 @@
             }
         });
 
-        function editItem(id) { alert(`Edit item ${id}`); }
+        async function addNewItem() {
+            const name = document.getElementById('new-name').value;
+            const description = document.getElementById('new-description').value;
+            const price = parseFloat(document.getElementById('new-price').value);
+            const image = document.getElementById('new-image').value;
+            if (!name || !description || !price) return alert('Fill all fields');
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/menu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name, description, price, image })
+                });
+                if (response.ok) {
+                    alert('Item added!');
+                    document.getElementById('add-item-form').style.display = 'none';
+                    loadMenu();
+                } else {
+                    alert('Failed to add item');
+                }
+            } catch (error) {
+                console.error('Error adding item:', error);
+            }
+        }
+
+        function editItem(id, name, description, price, image) {
+            const newName = prompt('New Name:', name);
+            const newDesc = prompt('New Description:', description);
+            const newPrice = prompt('New Price:', price);
+            const newImage = prompt('New Image:', image);
+            if (newName && newDesc && newPrice) {
+                fetch(`http://127.0.0.1:5000/api/menu/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name: newName, description: newDesc, price: parseFloat(newPrice), image: newImage })
+                }).then(() => loadMenu());
+            }
+        }
+
         function deleteItem(id) {
             if (confirm('Delete this item?')) {
                 fetch(`http://127.0.0.1:5000/api/menu/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } })
                     .then(() => loadMenu());
             }
+        }
+
+        function viewOrders() {
+            // Placeholder: Implement fetching /api/orders/all for admins
+            alert('View Orders: Fetch and display all orders here.');
         }
 
         loadMenu();

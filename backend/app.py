@@ -13,8 +13,18 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://urban_admin:urbandining%401234@localhost:5432/restaurant_db' 
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+database_url = os.getenv("DATABASE_URL")
+
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url or \
+    "postgresql://urban_admin:urbandining%401234@localhost:5432/restaurant_db"
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret-key")
+
 db.init_app(app)
 jwt = JWTManager(app)
 

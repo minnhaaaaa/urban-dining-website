@@ -1,17 +1,18 @@
 ## Urban Dining Restaurant Management Website
---
+
 Urban Dining is a web-based restaurant management and menu ordering application. It allows users to browse the menu, add items to their cart, and place orders. Admin users have additional privileges, including adding, editing, and deleting menu items, as well as managing orders. The app supports authentication via Google Identity Services (popup/token) and a fallback username/password login system.
---
 
-#Tech Stacks
-*Frontend: HTML, CSS, JavaScript (with Google Identity Services)
-*Backend: Python, Flask, Flask-SQLAlchemy, Flask-JWT-Extended, Flask-CORS
-*Database: PostgreSQL
-*Authentication: JWT (JSON Web Tokens)
+---
 
---
+## Tech Stacks
+- **Frontend**: HTML, CSS, JavaScript (with Google Identity Services)
+- **Backend:** Python, Flask, Flask-SQLAlchemy, Flask-JWT-Extended, Flask-CORS
+- **Database:** PostgreSQL
+- **Authentication:** JWT (JSON Web Tokens)
 
-#Deployment
+---
+
+##Deployment
 
 1. Install requirements
    `pip install -r requirements.txt`
@@ -21,9 +22,9 @@ Urban Dining is a web-based restaurant management and menu ordering application.
    `python backend/app.py`
 5. Access the frontend from your browser
 
---
+---
 
-#Improvements
+##Improvements
 
 1. Enhanced UI accessible with phones and laptops
 2. Order Management Dashboard for admins as well as order placing feature for users
